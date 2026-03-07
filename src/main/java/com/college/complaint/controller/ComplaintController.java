@@ -153,4 +153,23 @@ public class ComplaintController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
+
+    // ✅ AUTO-ASSIGN ENDPOINT (Can be triggered by Admin or automatically on creation)
+    @PostMapping("/admin/auto-assign")
+    public ResponseEntity<String> autoAssignStaff(@RequestParam Long complaintId,
+            @RequestHeader(value = "User-Email", required = false) String adminEmail) {
+        try {
+            if (adminEmail == null || adminEmail.trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User-Email header is missing.");
+            }
+            User admin = userService.findByEmail(adminEmail);
+            if (admin == null || admin.getRole() != Role.ADMIN) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only Admin can trigger Auto-Assign");
+            }
+            complaintService.autoAssignStaff(complaintId);
+            return ResponseEntity.ok("Staff Auto-Assigned Successfully using AI/Workload Logic! 🤖");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
 }

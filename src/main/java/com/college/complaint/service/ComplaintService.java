@@ -253,4 +253,63 @@ public class ComplaintService {
     public List<Complaint> getAllComplaints() {
         return complaintRepository.findAll();
     }
+
+    // =============================
+    // 🤖 AI/Auto-Assign Staff
+    // =============================
+    public Complaint autoAssignStaff(Long complaintId) {
+        Complaint complaint = getComplaintOrThrow(complaintId);
+        if (complaint.getStatus() != ComplaintStatus.OPEN) {
+            throw new RuntimeException("Only OPEN complaints can be automatically assigned");
+        }
+
+        // Us category ke saare staff dhundho
+        List<User> matchingStaff = userRepository.findByRoleAndDepartment(Role.STAFF, complaint.getCategory());
+
+        if (matchingStaff == null || matchingStaff.isEmpty()) {
+            // Fallback: Agar specific category ka staff na mile, toh system ka koi bhi
+            // staff pick karo
+            matchingStaff = userRepository.findByRole(Role.STAFF);
+            if (matchingStaff == null || matchingStaff.isEmpty()) {
+                throw new RuntimeException("No staff available in the system for assignment");
+            }
+        }
+
+        // Logic: Sabse kam assigned items wala staff chuno
+        User bestStaff = null;
+        int minWorkload = Integer.MAX_VALUE;
+
+        for (User staff : matchingStaff) {
+            // "IN_PROGRESS" status wali complaints ginenge jo is staff ko assigned hain
+            int currentWorkload = (int) complaintRepository.findByAssignedStaff(staff).stream()
+                    .filter(c -> c.getStatus() == ComplaintStatus.IN_PROGRESS
+                            || c.getStatus() == ComplaintStatus.ASSIGNED)
+                    .count();
+
+            if (currentWorkload < minWorkload) {
+                minWorkload = currentWorkload;
+                bestStaff = staff;
+            }
+        }
+
+        if (bestStaff == null) {
+            bestStaff = matchingStaff.get(0); // Default to first available
+        }
+
+        complaint.setAssignedStaff(bestStaff);
+        complaint.setStatus(ComplaintStatus.ASSIGNED);
+        Complaint updatedComplaint = complaintRepository.save(complaint);
+
+        // System (Auto-Assigner) notification email (optional - skipping full detail
+        // here for brevity)
+        emailService.sendEmail(
+                bestStaff.getEmail(),
+                "New Complaint AUTO-ASSIGNED to You: #" + updatedComplaint.getId(),
+                "Dear " + bestStaff.getName()
+                        + ",\n\nA new complaint has been auto-assigned to you due to your current workload optimization.\n\nTitle: "
+                        + updatedComplaint.getTitle() + "\nCategory: " + updatedComplaint.getCategory()
+                        + "\n\nPlease check your dashboard for details.\n\nSmart Complaint System");
+
+        return updatedComplaint;
+    }
 }
