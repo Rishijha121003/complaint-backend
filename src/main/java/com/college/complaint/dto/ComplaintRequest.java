@@ -30,6 +30,16 @@ public class ComplaintRequest {
         this.category = category;
     }
 
+    private String priority;
+
+    public String getPriority() {
+        return priority;
+    }
+
+    public void setPriority(String priority) {
+        this.priority = priority;
+    }
+
     private String location;
 
     public String getLocation() {

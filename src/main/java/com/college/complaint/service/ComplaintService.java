@@ -4,6 +4,7 @@ import com.college.complaint.dto.ComplaintRequest;
 import com.college.complaint.entity.Complaint;
 import com.college.complaint.entity.User;
 import com.college.complaint.enums.ComplaintCategory; // Add this
+import com.college.complaint.enums.ComplaintPriority;
 import com.college.complaint.enums.ComplaintStatus;
 import com.college.complaint.enums.Role;
 import com.college.complaint.repository.ComplaintRepository;
@@ -55,6 +56,17 @@ public class ComplaintService {
             // Agar Enum match nahi hua (jaise 'OTHER' missing ho), toh ye default set
             // karega
             complaint.setCategory(ComplaintCategory.OTHER);
+        }
+
+        try {
+            String priorityStr = request.getPriority();
+            if (priorityStr != null && !priorityStr.isEmpty()) {
+                complaint.setPriority(ComplaintPriority.valueOf(priorityStr.toUpperCase()));
+            } else {
+                complaint.setPriority(ComplaintPriority.LOW); // Default priority
+            }
+        } catch (IllegalArgumentException | NullPointerException e) {
+            complaint.setPriority(ComplaintPriority.LOW);
         }
 
         complaint.setLocation(request.getLocation());

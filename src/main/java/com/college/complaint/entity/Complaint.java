@@ -24,6 +24,9 @@ public class Complaint {
     private ComplaintCategory category;
 
     @Enumerated(EnumType.STRING)
+    private com.college.complaint.enums.ComplaintPriority priority;
+
+    @Enumerated(EnumType.STRING)
     private ComplaintStatus status;
 
     private LocalDateTime createdAt;
@@ -80,6 +83,14 @@ public class Complaint {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public com.college.complaint.enums.ComplaintPriority getPriority() {
+        return priority;
+    }
+
+    public void setPriority(com.college.complaint.enums.ComplaintPriority priority) {
+        this.priority = priority;
     }
 
     public ComplaintStatus getStatus() {
