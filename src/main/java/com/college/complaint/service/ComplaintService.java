@@ -1,14 +1,15 @@
 package com.college.complaint.service;
 
 import com.college.complaint.dto.ComplaintRequest;
+import com.college.complaint.entity.Category;
 import com.college.complaint.entity.Complaint;
 import com.college.complaint.entity.User;
-import com.college.complaint.enums.ComplaintCategory; // Add this
 import com.college.complaint.enums.ComplaintPriority;
 import com.college.complaint.enums.ComplaintStatus;
 import com.college.complaint.enums.Role;
+import com.college.complaint.repository.CategoryRepository;
 import com.college.complaint.repository.ComplaintRepository;
-import com.college.complaint.repository.UserRepository; // Add this
+import com.college.complaint.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -16,26 +17,22 @@ import java.util.List;
 @Service
 public class ComplaintService {
 
-    // 1. Pehle declare karein
     private final ComplaintRepository complaintRepository;
-    private final UserRepository userRepository; // Ye line check kar
+    private final UserRepository userRepository;
+    private final CategoryRepository categoryRepository;
     private final EmailService emailService;
 
-    // 2. Constructor mein dono ko pass karein
     public ComplaintService(ComplaintRepository complaintRepository, UserRepository userRepository,
-            EmailService emailService) {
+            CategoryRepository categoryRepository, EmailService emailService) {
         this.complaintRepository = complaintRepository;
-        this.userRepository = userRepository; // Ye injection zaroori hai
+        this.userRepository = userRepository;
+        this.categoryRepository = categoryRepository;
         this.emailService = emailService;
     }
 
-    // ====================== =======
-    // 1️⃣ Student creates complaint
-    // =============================
     public Complaint saveComplaint(ComplaintRequest request, String email) {
         User student = userRepository.findByEmail(email);
 
-        // 1. User check (Principal is null error se bachne ke liye)
         if (student == null) {
             throw new RuntimeException("Error: User with email " + email + " not found!");
         }
@@ -44,18 +41,25 @@ public class ComplaintService {
         complaint.setTitle(request.getTitle());
         complaint.setDescription(request.getDescription());
 
-        // 2. Enum conversion with Try-Catch (Red line aur 500 error ka permanent ilaj)
-        try {
-            String categoryStr = request.getCategory();
-            if (categoryStr != null && !categoryStr.isEmpty()) {
-                complaint.setCategory(ComplaintCategory.valueOf(categoryStr.toUpperCase()));
-            } else {
-                complaint.setCategory(ComplaintCategory.OTHER);
+        // Category matching - Try ID first, then fallback to name
+        Category category = null;
+        if (request.getCategoryId() != null) {
+            category = categoryRepository.findById(request.getCategoryId()).orElse(null);
+        }
+
+        if (category == null) {
+            // Optional fallback if category string matches
+            if (request.getCategory() != null && !request.getCategory().isEmpty()) {
+                List<Category> allCategories = categoryRepository.findAll();
+                category = allCategories.stream()
+                        .filter(c -> c.getName().equalsIgnoreCase(request.getCategory()))
+                        .findFirst()
+                        .orElse(null);
             }
-        } catch (IllegalArgumentException | NullPointerException e) {
-            // Agar Enum match nahi hua (jaise 'OTHER' missing ho), toh ye default set
-            // karega
-            complaint.setCategory(ComplaintCategory.OTHER);
+        }
+
+        if (category != null) {
+            complaint.setCategory(category);
         }
 
         try {
@@ -63,7 +67,7 @@ public class ComplaintService {
             if (priorityStr != null && !priorityStr.isEmpty()) {
                 complaint.setPriority(ComplaintPriority.valueOf(priorityStr.toUpperCase()));
             } else {
-                complaint.setPriority(ComplaintPriority.LOW); // Default priority
+                complaint.setPriority(ComplaintPriority.LOW);
             }
         } catch (IllegalArgumentException | NullPointerException e) {
             complaint.setPriority(ComplaintPriority.LOW);
@@ -78,21 +82,17 @@ public class ComplaintService {
 
         Complaint savedComplaint = complaintRepository.save(complaint);
 
-        // Send Email Notification
         emailService.sendEmail(
                 student.getEmail(),
                 "Complaint Registered Successfully: " + savedComplaint.getTitle(),
                 "Dear " + student.getName() + ",\n\nYour complaint has been successfully registered with ID: #"
-                        + savedComplaint.getId() + "\nCategory: " + savedComplaint.getCategory()
+                        + savedComplaint.getId() + "\nCategory: " + (savedComplaint.getCategory() != null ? savedComplaint.getCategory().getName() : "Unassigned")
                         + "\nStatus: OPEN\n\nWe will review this shortly.\n\nSmart Complaint System");
 
         return savedComplaint;
     }
 
-    // =============================
-    // 2️⃣ Admin assigns staff
-    // =============================
-    public Complaint assignStaff(Long complaintId, User admin, User staff) {
+    public Complaint assignStaff(Long complaintId, User admin, User staff, Long categoryId) {
         if (admin.getRole() != Role.ADMIN) {
             throw new RuntimeException("Only admin can assign staff");
         }
@@ -101,36 +101,31 @@ public class ComplaintService {
         }
 
         Complaint complaint = getComplaintOrThrow(complaintId);
-        if (complaint.getStatus() != ComplaintStatus.OPEN) {
-            throw new RuntimeException("Only OPEN complaints can be assigned");
+        if (complaint.getStatus() != ComplaintStatus.OPEN && complaint.getStatus() != ComplaintStatus.ASSIGNED && complaint.getStatus() != ComplaintStatus.IN_PROGRESS) {
+            throw new RuntimeException("Only OPEN, ASSIGNED, or IN_PROGRESS complaints can be assigned");
+        }
+
+        if (categoryId != null) {
+            Category category = categoryRepository.findById(categoryId).orElse(null);
+            if (category != null) {
+                complaint.setCategory(category);
+            }
         }
 
         complaint.setAssignedStaff(staff);
         complaint.setStatus(ComplaintStatus.ASSIGNED);
         Complaint updatedComplaint = complaintRepository.save(complaint);
 
-        // Notify Staff
         emailService.sendEmail(
                 staff.getEmail(),
                 "New Complaint Assigned: #" + updatedComplaint.getId(),
                 "Dear " + staff.getName() + ",\n\nA new complaint has been assigned to you.\n\nTitle: "
-                        + updatedComplaint.getTitle() + "\nCategory: " + updatedComplaint.getCategory()
+                        + updatedComplaint.getTitle() + "\nCategory: " + (updatedComplaint.getCategory() != null ? updatedComplaint.getCategory().getName() : "Unassigned")
                         + "\n\nPlease check your dashboard for details.\n\nSmart Complaint System");
-
-        // Notify Student
-        emailService.sendEmail(
-                updatedComplaint.getStudent().getEmail(),
-                "Complaint Update: #" + updatedComplaint.getId(),
-                "Dear " + updatedComplaint.getStudent().getName() + ",\n\nYour complaint (ID: #"
-                        + updatedComplaint.getId() + ") has been ASSIGNED to staff member " + staff.getName()
-                        + " for resolution.\n\nSmart Complaint System");
 
         return updatedComplaint;
     }
 
-    // =============================
-    // 3️⃣ Staff / Admin updates status
-    // =============================
     public Complaint updateStatus(Long complaintId, ComplaintStatus newStatus, User currentUser, String staffRemark,
             String resolvedImageUrl) {
         Complaint complaint = getComplaintOrThrow(complaintId);
@@ -147,21 +142,19 @@ public class ComplaintService {
         complaint.setStatus(newStatus);
         Complaint updatedComplaint = complaintRepository.save(complaint);
 
-        // Notify Student about status change
-        emailService.sendEmail(
-                updatedComplaint.getStudent().getEmail(),
-                "Complaint Status Changed: #" + updatedComplaint.getId(),
-                "Dear " + updatedComplaint.getStudent().getName() + ",\n\nThe status of your complaint (ID: #"
-                        + updatedComplaint.getId() + ") has been updated to: " + newStatus + ".\n" +
-                        (staffRemark != null ? "Remark from Staff: " + staffRemark + "\n\n" : "\n") +
-                        "Log in to your dashboard to view more details.\n\nSmart Complaint System");
+        if (newStatus == ComplaintStatus.RESOLVED || newStatus == ComplaintStatus.REJECTED) {
+            emailService.sendEmail(
+                    updatedComplaint.getStudent().getEmail(),
+                    "Complaint Status Changed: #" + updatedComplaint.getId(),
+                    "Dear " + updatedComplaint.getStudent().getName() + ",\n\nThe status of your complaint (ID: #"
+                            + updatedComplaint.getId() + ") has been updated to: " + newStatus + ".\n" +
+                            (staffRemark != null ? "Remark from Staff: " + staffRemark + "\n\n" : "\n") +
+                            "Log in to your dashboard to view more details.\n\nSmart Complaint System");
+        }
 
         return updatedComplaint;
     }
 
-    // =============================
-    // 4️⃣ Student closes complaint
-    // =============================
     public Complaint closeComplaint(Long complaintId, User student) {
         if (student.getRole() != Role.STUDENT) {
             throw new RuntimeException("Only student can close complaint");
@@ -178,7 +171,6 @@ public class ComplaintService {
         complaint.setStatus(ComplaintStatus.CLOSED);
         Complaint updatedComplaint = complaintRepository.save(complaint);
 
-        // Notify Staff that Student closed the complaint
         if (updatedComplaint.getAssignedStaff() != null) {
             emailService.sendEmail(
                     updatedComplaint.getAssignedStaff().getEmail(),
@@ -191,9 +183,6 @@ public class ComplaintService {
         return updatedComplaint;
     }
 
-    // =============================
-    // 🔥 STATUS FLOW VALIDATION
-    // =============================
     private void validateStatusTransition(ComplaintStatus current, ComplaintStatus next) {
         switch (current) {
             case OPEN:
@@ -266,33 +255,29 @@ public class ComplaintService {
         return complaintRepository.findAll();
     }
 
-    // =============================
-    // 🤖 AI/Auto-Assign Staff
-    // =============================
     public Complaint autoAssignStaff(Long complaintId) {
         Complaint complaint = getComplaintOrThrow(complaintId);
         if (complaint.getStatus() != ComplaintStatus.OPEN) {
             throw new RuntimeException("Only OPEN complaints can be automatically assigned");
         }
 
-        // Us category ke saare staff dhundho
-        List<User> matchingStaff = userRepository.findByRoleAndDepartment(Role.STAFF, complaint.getCategory());
+        List<User> matchingStaff = null;
+        if (complaint.getCategory() != null && complaint.getCategory().getDomain() != null) {
+            matchingStaff = userRepository.findByRoleAndDepartment(Role.STAFF,
+                    complaint.getCategory().getDomain());
+        }
 
         if (matchingStaff == null || matchingStaff.isEmpty()) {
-            // Fallback: Agar specific category ka staff na mile, toh system ka koi bhi
-            // staff pick karo
             matchingStaff = userRepository.findByRole(Role.STAFF);
             if (matchingStaff == null || matchingStaff.isEmpty()) {
                 throw new RuntimeException("No staff available in the system for assignment");
             }
         }
 
-        // Logic: Sabse kam assigned items wala staff chuno
         User bestStaff = null;
         int minWorkload = Integer.MAX_VALUE;
 
         for (User staff : matchingStaff) {
-            // "IN_PROGRESS" status wali complaints ginenge jo is staff ko assigned hain
             int currentWorkload = (int) complaintRepository.findByAssignedStaff(staff).stream()
                     .filter(c -> c.getStatus() == ComplaintStatus.IN_PROGRESS
                             || c.getStatus() == ComplaintStatus.ASSIGNED)
@@ -305,21 +290,19 @@ public class ComplaintService {
         }
 
         if (bestStaff == null) {
-            bestStaff = matchingStaff.get(0); // Default to first available
+            bestStaff = matchingStaff.get(0);
         }
 
         complaint.setAssignedStaff(bestStaff);
         complaint.setStatus(ComplaintStatus.ASSIGNED);
         Complaint updatedComplaint = complaintRepository.save(complaint);
 
-        // System (Auto-Assigner) notification email (optional - skipping full detail
-        // here for brevity)
         emailService.sendEmail(
                 bestStaff.getEmail(),
                 "New Complaint AUTO-ASSIGNED to You: #" + updatedComplaint.getId(),
                 "Dear " + bestStaff.getName()
                         + ",\n\nA new complaint has been auto-assigned to you due to your current workload optimization.\n\nTitle: "
-                        + updatedComplaint.getTitle() + "\nCategory: " + updatedComplaint.getCategory()
+                        + updatedComplaint.getTitle() + "\nCategory: " + (updatedComplaint.getCategory() != null ? updatedComplaint.getCategory().getName() : "Unassigned")
                         + "\n\nPlease check your dashboard for details.\n\nSmart Complaint System");
 
         return updatedComplaint;
