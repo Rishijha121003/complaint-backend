@@ -20,25 +20,24 @@ public class AuthController {
         this.passwordEncoder = passwordEncoder;
     }
 
-        @PostMapping("/login")
-        public ResponseEntity<?> login(@RequestBody Map<String, String> credentials) {
-            String email = credentials.get("email").trim();
-            String password = credentials.get("password").trim();
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody Map<String, String> credentials) {
+        String email = credentials.get("email").trim();
+        String password = credentials.get("password").trim();
 
-            User user = userService.findByEmail(email);
+        User user = userService.findByEmail(email);
 
-            if (user != null) {
-                // BCrypt matches check
-                if (passwordEncoder.matches(password, user.getPassword()) || password.equals("12345")) {
-                    return ResponseEntity.ok(Map.of(
-                            "email", user.getEmail(),
-                            "role", user.getRole().name(),
-                            "message", "Login Successful"
-                    ));
-                }
+        if (user != null) {
+            // BCrypt matches check
+            if (passwordEncoder.matches(password, user.getPassword()) || password.equals("12345")) {
+                return ResponseEntity.ok(Map.of(
+                        "email", user.getEmail(),
+                        "role", user.getRole().name(),
+                        "message", "Login Successful"));
             }
-            return ResponseEntity.status(401).body("Invalid Email or Password");
         }
+        return ResponseEntity.status(401).body("Invalid Email or Password");
+    }
 
     @PostMapping("/signup")
     public ResponseEntity<?> registerUser(@RequestBody User user) {
@@ -48,10 +47,8 @@ public class AuthController {
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
-        // Agar frontend se role nahi aaya, toh default STUDENT rakhein
-        if (user.getRole() == null) {
-            user.setRole(Role.STUDENT);
-        }
+        // Force role to STUDENT for security (only students can sign up)
+        user.setRole(Role.STUDENT);
 
         userService.save(user);
         return ResponseEntity.ok(Map.of("message", "User registered successfully! 🎉"));

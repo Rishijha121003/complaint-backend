@@ -3,7 +3,6 @@ package com.college.complaint.controller;
 import com.college.complaint.dto.ComplaintRequest;
 import com.college.complaint.entity.Complaint;
 import com.college.complaint.entity.User;
-import com.college.complaint.enums.ComplaintCategory;
 import com.college.complaint.enums.ComplaintStatus;
 import com.college.complaint.enums.Role;
 import com.college.complaint.service.ComplaintService;
@@ -130,13 +129,23 @@ public class ComplaintController {
     }
 
     @GetMapping("/admin/all")
-    public ResponseEntity<List<Complaint>> getAllComplaintsForAdmin() {
-        return ResponseEntity.ok(complaintService.getAllComplaints());
+    public List<Complaint> getAllComplaintsForAdmin() {
+        return complaintService.getAllComplaints();
+    }
+
+    /**
+     * GLOBAL IDENTITY SYNC
+     * Fetch all university personas for the Management Dashboard
+     */
+    @GetMapping("/admin/users/all")
+    public List<User> getAllUsers() {
+        return userService.findAll();
     }
 
     @PostMapping("/admin/assign")
     public ResponseEntity<String> assignStaff(@RequestParam Long complaintId,
             @RequestParam Long staffId,
+            @RequestParam(required = false) Long categoryId,
             @RequestHeader(value = "User-Email", required = false) String adminEmail) {
         try {
             if (adminEmail == null || adminEmail.trim().isEmpty()) {
@@ -147,14 +156,15 @@ public class ComplaintController {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Admin not found");
             }
             User staff = userService.findById(staffId);
-            complaintService.assignStaff(complaintId, admin, staff);
+            complaintService.assignStaff(complaintId, admin, staff, categoryId);
             return ResponseEntity.ok("Staff assigned successfully!");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
 
-    // ✅ AUTO-ASSIGN ENDPOINT (Can be triggered by Admin or automatically on creation)
+    // ✅ AUTO-ASSIGN ENDPOINT (Can be triggered by Admin or automatically on
+    // creation)
     @PostMapping("/admin/auto-assign")
     public ResponseEntity<String> autoAssignStaff(@RequestParam Long complaintId,
             @RequestHeader(value = "User-Email", required = false) String adminEmail) {

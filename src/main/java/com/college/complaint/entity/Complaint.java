@@ -1,9 +1,8 @@
 package com.college.complaint.entity;
 
-import com.college.complaint.enums.ComplaintCategory;
+import com.college.complaint.enums.ComplaintPriority;
 import com.college.complaint.enums.ComplaintStatus;
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -20,11 +19,12 @@ public class Complaint {
     @Column(length = 1000, nullable = false)
     private String description;
 
-    @Enumerated(EnumType.STRING)
-    private ComplaintCategory category;
+    @ManyToOne
+    @JoinColumn(name = "category_id")
+    private Category category;
 
     @Enumerated(EnumType.STRING)
-    private com.college.complaint.enums.ComplaintPriority priority;
+    private ComplaintPriority priority;
 
     @Enumerated(EnumType.STRING)
     private ComplaintStatus status;
@@ -32,30 +32,24 @@ public class Complaint {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // Student who raised complaint
     @ManyToOne
     @JoinColumn(name = "student_id", nullable = false)
     private User student;
 
-    // Staff assigned by admin
     @ManyToOne
     @JoinColumn(name = "assigned_staff_id")
     private User assignedStaff;
 
-    // Automatically set before insert
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         status = ComplaintStatus.OPEN;
     }
 
-    // Automatically update time before update
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
-
-    // Getters and Setters
 
     public Long getId() {
         return id;
@@ -73,23 +67,23 @@ public class Complaint {
         return description;
     }
 
-    public ComplaintCategory getCategory() {
-        return category;
-    }
-
-    public void setCategory(ComplaintCategory category) {
-        this.category = category;
-    }
-
     public void setDescription(String description) {
         this.description = description;
     }
 
-    public com.college.complaint.enums.ComplaintPriority getPriority() {
+    public Category getCategory() {
+        return category;
+    }
+
+    public void setCategory(Category category) {
+        this.category = category;
+    }
+
+    public ComplaintPriority getPriority() {
         return priority;
     }
 
-    public void setPriority(com.college.complaint.enums.ComplaintPriority priority) {
+    public void setPriority(ComplaintPriority priority) {
         this.priority = priority;
     }
 
@@ -125,12 +119,9 @@ public class Complaint {
         this.assignedStaff = assignedStaff;
     }
 
-    // Complaint.java ke andar fields ke saath ye add karein
     private String location;
+    private String imageUrl;
 
-    private String imageUrl; // For file attachment
-
-    // Aur ye methods (Getters/Setters) add karein
     public String getLocation() {
         return location;
     }
@@ -147,8 +138,8 @@ public class Complaint {
         this.imageUrl = imageUrl;
     }
 
-    private String resolvedImageUrl; // For Staff Proof
-    private String staffRemark; // Staff's final comment
+    private String resolvedImageUrl;
+    private String staffRemark;
 
     public String getResolvedImageUrl() {
         return resolvedImageUrl;

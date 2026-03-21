@@ -26,10 +26,13 @@ public class UserService {
         userRepository.save(user);
     }
 
-    // ✅ YE METHOD ADD KARO: Controller ka error khatam ho jayega
     public User findById(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+    }
+
+    public List<User> findAll() {
+        return userRepository.findAll();
     }
 
     public List<User> findAllByRole(Role role) {

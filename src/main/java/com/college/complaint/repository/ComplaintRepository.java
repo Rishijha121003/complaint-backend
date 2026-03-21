@@ -14,5 +14,6 @@ public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
     List<Complaint> findByAssignedStaff(User staff);
 
     List<Complaint> findByStatus(ComplaintStatus status);
-    List<Complaint> findByCategoryAndStatus(com.college.complaint.enums.ComplaintCategory category, ComplaintStatus status);
+
+    List<Complaint> findByCategoryAndStatus(com.college.complaint.entity.Category category, ComplaintStatus status);
 }

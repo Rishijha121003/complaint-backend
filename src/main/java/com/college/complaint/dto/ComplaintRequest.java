@@ -5,6 +5,7 @@ public class ComplaintRequest {
     private String title;
     private String description;
     private String category;
+    private Long categoryId;
 
     public String getTitle() {
         return title;
@@ -28,6 +29,14 @@ public class ComplaintRequest {
 
     public void setCategory(String category) {
         this.category = category;
+    }
+
+    public Long getCategoryId() {
+        return categoryId;
+    }
+
+    public void setCategoryId(Long categoryId) {
+        this.categoryId = categoryId;
     }
 
     private String priority;

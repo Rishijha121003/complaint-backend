@@ -40,7 +40,7 @@ public class ProfileController {
         response.put("role", user.getRole().name());
 
         if (user.getDepartment() != null) {
-            response.put("department", user.getDepartment().name());
+            response.put("department", user.getDepartment().getName());
         }
 
         if (user.getProfilePictureUrl() != null) {

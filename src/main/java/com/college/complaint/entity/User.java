@@ -1,7 +1,6 @@
 package com.college.complaint.entity;
 
 import com.college.complaint.enums.Role;
-import com.college.complaint.enums.ComplaintCategory;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -31,9 +30,9 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "department")
-    private ComplaintCategory department;
+    @ManyToOne
+    @JoinColumn(name = "domain_id")
+    private Domain department;
 
     @Column(name = "profile_picture_url")
     private String profilePictureUrl;
