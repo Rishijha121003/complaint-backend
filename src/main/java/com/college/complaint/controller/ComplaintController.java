@@ -11,7 +11,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.college.complaint.dto.AdminComplaintDTO;
+import com.college.complaint.dto.AdminUserDTO;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/complaints")
@@ -128,8 +131,20 @@ public class ComplaintController {
     }
 
     @GetMapping("/admin/all")
-    public List<Complaint> getAllComplaintsForAdmin() {
-        return complaintService.getAllComplaints();
+    public List<AdminComplaintDTO> getAllComplaintsForAdmin() {
+        return complaintService.getAllComplaints().stream()
+                .map(c -> AdminComplaintDTO.builder()
+                        .id(c.getId())
+                        .title(c.getTitle())
+                        .status(c.getStatus().name())
+                        .priority(c.getPriority().name())
+                        .createdAt(c.getCreatedAt())
+                        .studentName(c.getStudent() != null ? c.getStudent().getName() : "Unknown")
+                        .assignedStaffName(c.getAssignedStaff() != null ? c.getAssignedStaff().getName() : "Unassigned")
+                        .categoryName(c.getCategory() != null ? c.getCategory().getName() : "General")
+                        .location(c.getLocation())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     /**
@@ -137,8 +152,18 @@ public class ComplaintController {
      * Fetch all university personas for the Management Dashboard
      */
     @GetMapping("/admin/users/all")
-    public List<User> getAllUsers() {
-        return userService.findAll();
+    public List<AdminUserDTO> getAllUsers() {
+        return userService.findAll().stream()
+                .map(u -> AdminUserDTO.builder()
+                        .id(u.getId())
+                        .name(u.getName())
+                        .email(u.getEmail())
+                        .role(u.getRole())
+                        .departmentName(u.getDepartment() != null ? u.getDepartment().getName() : "N/A")
+                        .specializationName(u.getSpecialization() != null ? u.getSpecialization().getName() : "N/A")
+                        .profilePictureUrl(u.getProfilePictureUrl())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     @PostMapping("/admin/users/create")
