@@ -1,8 +1,9 @@
 package com.college.complaint.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "categories")
 public class Category {
@@ -16,7 +17,7 @@ public class Category {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "domain_id", nullable = false)
-    @JsonIgnore
+    @JsonIgnoreProperties("categories")
     private Domain domain;
 
     public Category() {

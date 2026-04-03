@@ -43,8 +43,9 @@ public class ComplaintService {
 
         // Category matching - Try ID first, then fallback to name
         Category category = null;
-        if (request.getCategoryId() != null) {
-            category = categoryRepository.findById(request.getCategoryId()).orElse(null);
+        Long cId = request.getCategoryId();
+        if (cId != null) {
+            category = categoryRepository.findById(cId).orElse(null);
         }
 
         if (category == null) {
@@ -81,13 +82,7 @@ public class ComplaintService {
         complaint.setStatus(ComplaintStatus.OPEN);
 
         Complaint savedComplaint = complaintRepository.save(complaint);
-
-        emailService.sendEmail(
-                student.getEmail(),
-                "Complaint Registered Successfully: " + savedComplaint.getTitle(),
-                "Dear " + student.getName() + ",\n\nYour complaint has been successfully registered with ID: #"
-                        + savedComplaint.getId() + "\nCategory: " + (savedComplaint.getCategory() != null ? savedComplaint.getCategory().getName() : "Unassigned")
-                        + "\nStatus: OPEN\n\nWe will review this shortly.\n\nSmart Complaint System");
+        emailService.notifyStudentTicketRaised(savedComplaint);
 
         return savedComplaint;
     }
@@ -115,13 +110,7 @@ public class ComplaintService {
         complaint.setAssignedStaff(staff);
         complaint.setStatus(ComplaintStatus.ASSIGNED);
         Complaint updatedComplaint = complaintRepository.save(complaint);
-
-        emailService.sendEmail(
-                staff.getEmail(),
-                "New Complaint Assigned: #" + updatedComplaint.getId(),
-                "Dear " + staff.getName() + ",\n\nA new complaint has been assigned to you.\n\nTitle: "
-                        + updatedComplaint.getTitle() + "\nCategory: " + (updatedComplaint.getCategory() != null ? updatedComplaint.getCategory().getName() : "Unassigned")
-                        + "\n\nPlease check your dashboard for details.\n\nSmart Complaint System");
+        emailService.notifyStaffAssignment(updatedComplaint);
 
         return updatedComplaint;
     }
@@ -143,13 +132,7 @@ public class ComplaintService {
         Complaint updatedComplaint = complaintRepository.save(complaint);
 
         if (newStatus == ComplaintStatus.RESOLVED || newStatus == ComplaintStatus.REJECTED) {
-            emailService.sendEmail(
-                    updatedComplaint.getStudent().getEmail(),
-                    "Complaint Status Changed: #" + updatedComplaint.getId(),
-                    "Dear " + updatedComplaint.getStudent().getName() + ",\n\nThe status of your complaint (ID: #"
-                            + updatedComplaint.getId() + ") has been updated to: " + newStatus + ".\n" +
-                            (staffRemark != null ? "Remark from Staff: " + staffRemark + "\n\n" : "\n") +
-                            "Log in to your dashboard to view more details.\n\nSmart Complaint System");
+            emailService.notifyStatusUpdate(updatedComplaint, staffRemark);
         }
 
         return updatedComplaint;
@@ -172,12 +155,7 @@ public class ComplaintService {
         Complaint updatedComplaint = complaintRepository.save(complaint);
 
         if (updatedComplaint.getAssignedStaff() != null) {
-            emailService.sendEmail(
-                    updatedComplaint.getAssignedStaff().getEmail(),
-                    "Complaint Closed: #" + updatedComplaint.getId(),
-                    "Dear " + updatedComplaint.getAssignedStaff().getName() + ",\n\nThe complaint (ID: #"
-                            + updatedComplaint.getId()
-                            + ") has been confirmed and CLOSED by the student.\n\nThank you for your assistance.\n\nSmart Complaint System");
+            emailService.notifyTicketClosed(updatedComplaint);
         }
 
         return updatedComplaint;

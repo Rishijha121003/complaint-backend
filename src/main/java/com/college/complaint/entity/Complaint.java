@@ -2,9 +2,11 @@ package com.college.complaint.entity;
 
 import com.college.complaint.enums.ComplaintPriority;
 import com.college.complaint.enums.ComplaintStatus;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "complaints")
 public class Complaint {
@@ -21,6 +23,7 @@ public class Complaint {
 
     @ManyToOne
     @JoinColumn(name = "category_id")
+    @JsonIgnoreProperties("domain")
     private Category category;
 
     @Enumerated(EnumType.STRING)
@@ -34,10 +37,12 @@ public class Complaint {
 
     @ManyToOne
     @JoinColumn(name = "student_id", nullable = false)
+    @JsonIgnoreProperties({"department", "specialization", "password"})
     private User student;
 
     @ManyToOne
     @JoinColumn(name = "assigned_staff_id")
+    @JsonIgnoreProperties({"department", "specialization", "password"})
     private User assignedStaff;
 
     @PrePersist

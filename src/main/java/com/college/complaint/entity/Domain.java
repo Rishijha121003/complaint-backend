@@ -1,10 +1,11 @@
 package com.college.complaint.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Entity
 @Table(name = "domains")
 public class Domain {
@@ -20,7 +21,7 @@ public class Domain {
     private String description;
 
     @OneToMany(mappedBy = "domain", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private List<Category> categories = new ArrayList<>();
 
     public Domain() {

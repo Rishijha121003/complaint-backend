@@ -11,7 +11,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.college.complaint.dto.AdminComplaintDTO;
+import com.college.complaint.dto.AdminUserDTO;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/complaints")
@@ -30,7 +33,7 @@ public class ComplaintController {
     // ✅ FIX: Path changed to /student/my-complaints to match frontend
     @GetMapping("/student/my-complaints")
     public ResponseEntity<List<Complaint>> getMyComplaints(
-            @RequestHeader(value = "User-Email", required = false) String email) {
+            @RequestHeader(value = "User-Email", required = true) String email) {
         if (email == null)
             email = "student@test.com";
         User student = userService.findByEmail(email);
@@ -39,11 +42,10 @@ public class ComplaintController {
 
     @PostMapping("/raise")
     public ResponseEntity<?> raiseComplaint(@RequestBody ComplaintRequest request,
-            @RequestHeader(value = "User-Email", required = false) String email) {
+            @RequestHeader(value = "User-Email", required = true) String email) {
         if (email == null || email.trim().isEmpty()) {
             return ResponseEntity.status(401).body("Error: User-Email header is missing. Please login again.");
         }
-        // ensure service method is called exactly like this
         Complaint saved = complaintService.saveComplaint(request, email);
         return ResponseEntity.ok(saved);
     }
@@ -52,7 +54,7 @@ public class ComplaintController {
 
     @GetMapping("/staff/assigned")
     public ResponseEntity<?> getAssignedComplaints(
-            @RequestHeader(value = "User-Email", required = false) String email) {
+            @RequestHeader(value = "User-Email", required = true) String email) {
         if (email == null || email.trim().isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User-Email header is missing.");
         }
@@ -65,8 +67,8 @@ public class ComplaintController {
 
     @PatchMapping("/staff/update-status/{id}")
     public ResponseEntity<String> updateStatus(@PathVariable Long id,
-            @RequestParam String status, // String mein lein
-            @RequestHeader(value = "User-Email", required = false) String email) {
+            @RequestParam String status,
+            @RequestHeader(value = "User-Email", required = true) String email) {
         try {
             if (email == null || email.trim().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User-Email header is missing.");
@@ -92,7 +94,7 @@ public class ComplaintController {
     public ResponseEntity<String> resolveComplaint(@PathVariable Long id,
             @RequestParam(value = "remark", required = false) String remark,
             @RequestParam(value = "image", required = false) org.springframework.web.multipart.MultipartFile image,
-            @RequestHeader(value = "User-Email", required = false) String email) {
+            @RequestHeader(value = "User-Email", required = true) String email) {
         try {
             if (email == null || email.trim().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User-Email header is missing.");
@@ -129,8 +131,20 @@ public class ComplaintController {
     }
 
     @GetMapping("/admin/all")
-    public List<Complaint> getAllComplaintsForAdmin() {
-        return complaintService.getAllComplaints();
+    public List<AdminComplaintDTO> getAllComplaintsForAdmin() {
+        return complaintService.getAllComplaints().stream()
+                .map(c -> AdminComplaintDTO.builder()
+                        .id(c.getId())
+                        .title(c.getTitle())
+                        .status(c.getStatus().name())
+                        .priority(c.getPriority().name())
+                        .createdAt(c.getCreatedAt())
+                        .studentName(c.getStudent() != null ? c.getStudent().getName() : "Unknown")
+                        .assignedStaffName(c.getAssignedStaff() != null ? c.getAssignedStaff().getName() : "Unassigned")
+                        .categoryName(c.getCategory() != null ? c.getCategory().getName() : "General")
+                        .location(c.getLocation())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     /**
@@ -138,15 +152,43 @@ public class ComplaintController {
      * Fetch all university personas for the Management Dashboard
      */
     @GetMapping("/admin/users/all")
-    public List<User> getAllUsers() {
-        return userService.findAll();
+    public List<AdminUserDTO> getAllUsers() {
+        return userService.findAll().stream()
+                .map(u -> AdminUserDTO.builder()
+                        .id(u.getId())
+                        .name(u.getName())
+                        .email(u.getEmail())
+                        .role(u.getRole())
+                        .departmentName(u.getDepartment() != null ? u.getDepartment().getName() : "N/A")
+                        .specializationName(u.getSpecialization() != null ? u.getSpecialization().getName() : "N/A")
+                        .profilePictureUrl(u.getProfilePictureUrl())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @PostMapping("/admin/users/create")
+    public ResponseEntity<?> createManagedUser(@RequestBody User newUser,
+            @RequestHeader(value = "User-Email", required = true) String adminEmail) {
+        try {
+            if (adminEmail == null || adminEmail.trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Admin identity required.");
+            }
+            User admin = userService.findByEmail(adminEmail);
+            if (admin == null || admin.getRole() != Role.ADMIN) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only Admins can spawn new identities.");
+            }
+            User created = userService.createAdminManagedUser(newUser);
+            return ResponseEntity.ok(created);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
     @PostMapping("/admin/assign")
     public ResponseEntity<String> assignStaff(@RequestParam Long complaintId,
             @RequestParam Long staffId,
             @RequestParam(required = false) Long categoryId,
-            @RequestHeader(value = "User-Email", required = false) String adminEmail) {
+            @RequestHeader(value = "User-Email", required = true) String adminEmail) {
         try {
             if (adminEmail == null || adminEmail.trim().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User-Email header is missing.");

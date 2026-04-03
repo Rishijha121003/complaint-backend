@@ -33,6 +33,8 @@ public class AuthController {
                 return ResponseEntity.ok(Map.of(
                         "email", user.getEmail(),
                         "role", user.getRole().name(),
+                        "name", user.getName() != null ? user.getName() : "",
+                        "avatar", user.getProfilePictureUrl() != null ? user.getProfilePictureUrl() : "",
                         "message", "Login Successful"));
             }
         }

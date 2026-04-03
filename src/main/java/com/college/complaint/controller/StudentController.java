@@ -26,7 +26,7 @@ public class StudentController {
     @PostMapping(value = "/raise", consumes = { "multipart/form-data" })
     public ResponseEntity<?> raiseComplaint(@ModelAttribute ComplaintRequest request,
             @RequestParam(value = "image", required = false) org.springframework.web.multipart.MultipartFile image,
-            @RequestHeader(value = "User-Email", required = false) String email) {
+            @RequestHeader(value = "User-Email", required = true) String email) {
         if (email == null || email.trim().isEmpty()) {
             return ResponseEntity.status(401).body("Error: User-Email header is missing. Please login again.");
         }
@@ -49,17 +49,17 @@ public class StudentController {
 
     // 2. Student ki saari complaints fetch karne ke liye
     @GetMapping("/my-complaints")
-    public List<Complaint> getMyComplaints(@RequestHeader(value = "User-Email", required = false) String email) {
+    public List<Complaint> getMyComplaints(@RequestHeader(value = "User-Email", required = true) String email) {
         if (email == null)
             email = "student@test.com";
-        User student = userRepository.findByEmail(email); // No hardcoded email
+        User student = userRepository.findByEmail(email); 
         return complaintService.getComplaintsByStudent(student);
     }
 
     // 3. Student close karne ke liye
     @PatchMapping("/close/{id}")
     public ResponseEntity<?> closeComplaint(@PathVariable Long id,
-            @RequestHeader(value = "User-Email", required = false) String email) {
+            @RequestHeader(value = "User-Email", required = true) String email) {
         if (email == null || email.trim().isEmpty()) {
             return ResponseEntity.status(401).body("Error: User-Email header is missing. Please login again.");
         }
